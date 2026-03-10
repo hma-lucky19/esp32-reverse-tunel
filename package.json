@@ -1,5 +1,5 @@
 {
-  "name": "esp32-tunnel-gateway",
+  "name": "esp32-reverse-tunel",
   "version": "1.0.0",
   "main": "vpstunel.js",
   "scripts": {
