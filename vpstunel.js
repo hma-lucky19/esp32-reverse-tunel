@@ -7,39 +7,33 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 let esp32Socket = null;
+let pendingResponse = null;
 
-wss.on('connection', (ws, req) => {
-  console.log('Client connected:', req.socket.remoteAddress);
-  
-  // Erstes WS = ESP32
-  if (!esp32Socket) {
+// Websocket-Verbindung vom ESP32
+wss.on('connection', (ws) => {
+    console.log("ESP32 verbunden!");
     esp32Socket = ws;
+    
     ws.on('message', (data) => {
-      console.log('ESP32:', data.toString());
+        // Wenn der ESP32 HTML sendet, schicken wir es an den wartenden Browser
+        if (pendingResponse) {
+            pendingResponse.send(data.toString());
+            pendingResponse = null;
+        }
     });
-    app.locals.esp32Connected = true;  // Status setzen
-  }
+
+    ws.on('close', () => { esp32Socket = null; });
 });
 
+// Öffentliche URL: Leitet Anfragen an den ESP32 weiter
 app.get('/', (req, res) => {
-  if (app.locals.esp32Connected) {
-    res.send('✅ ESP32 connected!');
-  } else {
-    res.send('❌ ESP32 not connected');
-  }
+    if (esp32Socket && esp32Socket.readyState === WebSocket.OPEN) {
+        pendingResponse = res;
+        esp32Socket.send("GET_HTML"); // Signal an den ESP32
+    } else {
+        res.status(503).send("ESP32 ist nicht verbunden.");
+    }
 });
 
-app.post('/tunnel', (req, res) => {
-  if (esp32Socket) {
-    esp32Socket.send(req.body);  // HTTP → WS
-    res.json({status: 'sent'});
-  } else {
-    res.status(503).send('ESP32 offline');
-  }
-});
-
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log(`Gateway on port ${PORT}`);
-});
-
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server läuft auf Port ${PORT}`));
