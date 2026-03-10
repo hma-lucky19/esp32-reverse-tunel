@@ -41,3 +41,6 @@ app.get('/', async (req, res) => {
         res.status(503).send("ESP32 verbindet sich noch... bitte Seite neu laden.");
     }
 });
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server läuft auf Port ${PORT}`));
