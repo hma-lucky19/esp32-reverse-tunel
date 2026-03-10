@@ -1,46 +1,45 @@
-// sehr vereinfachtes Beispiel, nicht produktionsreif
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
 
-const net = require("net");
-const express = require("express");
-
-let espSocket = null;
-
-// TCP-Server für ESP32
-const tcpServer = net.createServer((socket) => {
-  espSocket = socket;
-  // hier müsstest du auch die JSON-Frames lesen, etc.
-});
-
-tcpServer.listen(9000);
-
-// HTTP-Server für Browser
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-app.use(express.text({ type: "*/*" })); // Body als Text
+let esp32Socket = null;
 
-app.all("*", async (req, res) => {
-  if (!espSocket) {
-    return res.status(503).send("ESP32 not connected");
+wss.on('connection', (ws, req) => {
+  console.log('Client connected:', req.socket.remoteAddress);
+  
+  // Erstes WS = ESP32
+  if (!esp32Socket) {
+    esp32Socket = ws;
+    ws.on('message', (data) => {
+      console.log('ESP32:', data.toString());
+    });
+    app.locals.esp32Connected = true;  // Status setzen
   }
-
-  const id = Date.now(); // simple ID
-  // Request-JSON fürs ESP bauen
-  const payload = JSON.stringify({
-    id,
-    method: req.method,
-    path: req.path,
-    query: req.originalUrl.split("?")[1] || "",
-    body: req.body || ""
-  });
-
-  // Länge + JSON an ESP schicken
-  const len = Buffer.byteLength(payload);
-  const header = Buffer.alloc(4);
-  header.writeUInt32BE(len);
-  espSocket.write(Buffer.concat([header, Buffer.from(payload)]));
-
-  // Jetzt Antwort von ESP lesen -> passend parsen (id vergleichen) -> an Browser senden.
-  // Der Code dafür ist etwas ausführlicher (Buffer-Handling, mehrere Requests parallel etc.).
 });
 
-app.listen(process.env.PORT || 3000);
+app.get('/', (req, res) => {
+  if (app.locals.esp32Connected) {
+    res.send('✅ ESP32 connected!');
+  } else {
+    res.send('❌ ESP32 not connected');
+  }
+});
+
+app.post('/tunnel', (req, res) => {
+  if (esp32Socket) {
+    esp32Socket.send(req.body);  // HTTP → WS
+    res.json({status: 'sent'});
+  } else {
+    res.status(503).send('ESP32 offline');
+  }
+});
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+  console.log(`Gateway on port ${PORT}`);
+});
+
