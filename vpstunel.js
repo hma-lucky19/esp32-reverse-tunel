@@ -40,11 +40,4 @@ app.get('/', async (req, res) => {
     } else {
         res.status(503).send("ESP32 verbindet sich noch... bitte Seite neu laden.");
     }
-        const action = req.query.action;
-    if (action) {
-        // Schicke den Befehl (z.B. "L1_ON") an den ESP32
-        esp32Socket.send(action);
-        // Nach dem Klick laden wir die Seite nach 1 Sekunde neu, um den Status zu sehen
-        return res.send("<script>setTimeout(() => { window.location.href = '/'; }, 1000);</script>Befehl gesendet...");
-    }
 });
