@@ -1,0 +1,11 @@
+{
+  "name": "esp32-tunnel-gateway",
+  "version": "1.0.0",
+  "main": "vpstunel.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
