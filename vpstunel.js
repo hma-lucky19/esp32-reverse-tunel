@@ -1,51 +1,69 @@
 const express = require("express");
 const WebSocket = require("ws");
+const http = require("http");
 
 const app = express();
-const server = require("http").createServer(app);
-const wss = new WebSocket.Server({ server });
+app.use(express.raw({type:"*/*"}));
 
-let espSocket = null;
+const server = http.createServer(app);
+const wss = new WebSocket.Server({server});
 
-wss.on("connection", (ws, req) => {
+let esp = null;
+let requests = {};
+
+wss.on("connection", ws => {
+
     console.log("ESP32 connected");
-    espSocket = ws;
+    esp = ws;
 
-    ws.on("close", () => {
+    ws.on("close", ()=>{
         console.log("ESP32 disconnected");
-        espSocket = null;
+        esp = null;
     });
+
+    ws.on("message", msg=>{
+        const data = JSON.parse(msg);
+
+        const res = requests[data.id];
+        if(!res) return;
+
+        res.status(data.status);
+
+        if(data.headers){
+            for(const h in data.headers){
+                res.setHeader(h,data.headers[h]);
+            }
+        }
+
+        res.send(Buffer.from(data.body,"base64"));
+
+        delete requests[data.id];
+    });
+
 });
 
-app.use(async (req, res) => {
+app.all("*",(req,res)=>{
 
-    if (!espSocket) {
+    if(!esp){
         res.status(503).send("ESP32 offline");
         return;
     }
 
-    const id = Date.now();
+    const id = Date.now()+Math.random();
+
+    requests[id] = res;
 
     const payload = {
-        id: id,
-        method: req.method,
-        path: req.originalUrl
+        id:id,
+        method:req.method,
+        path:req.originalUrl,
+        headers:req.headers,
+        body:req.body.toString("base64")
     };
 
-    espSocket.send(JSON.stringify(payload));
-
-    const listener = (msg) => {
-        const data = JSON.parse(msg);
-
-        if (data.id === id) {
-            res.status(200).send(data.body);
-            espSocket.off("message", listener);
-        }
-    };
-
-    espSocket.on("message", listener);
+    esp.send(JSON.stringify(payload));
 });
 
-server.listen(3000, () => {
-    console.log("Tunnel server running");
+server.listen(3000,()=>{
+    console.log("Tunnel running");
 });
