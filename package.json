@@ -1,5 +1,5 @@
 {
-  "name": "esp32-reverse-tunel",
+  "name": "esp32-tunnel",
   "version": "1.0.0",
   "main": "vpstunnel.js",
   "dependencies": {
