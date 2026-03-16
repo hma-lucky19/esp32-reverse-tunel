@@ -1,46 +1,51 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
+const express = require("express");
+const WebSocket = require("ws");
 
 const app = express();
-const server = http.createServer(app);
+const server = require("http").createServer(app);
 const wss = new WebSocket.Server({ server });
 
-let esp32Socket = null;
-let pendingResponse = null;
+let espSocket = null;
 
-// Websocket-Verbindung vom ESP32
-wss.on('connection', (ws) => {
-    console.log("ESP32 verbunden!");
-    esp32Socket = ws;
-    
-    ws.on('message', (data) => {
-        // Wenn der ESP32 HTML sendet, schicken wir es an den wartenden Browser
-        if (pendingResponse) {
-            pendingResponse.send(data.toString());
-            pendingResponse = null;
-        }
+wss.on("connection", (ws, req) => {
+    console.log("ESP32 connected");
+    espSocket = ws;
+
+    ws.on("close", () => {
+        console.log("ESP32 disconnected");
+        espSocket = null;
     });
-
-    ws.on('close', () => { esp32Socket = null; });
 });
 
-// Öffentliche URL: Leitet Anfragen an den ESP32 weiter
-app.get('/', async (req, res) => {
-    // Warte bis zu 5 Sekunden, falls der ESP32 gerade erst reconnectet
-    let attempts = 0;
-    while (!esp32Socket && attempts < 5) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
+app.use(async (req, res) => {
+
+    if (!espSocket) {
+        res.status(503).send("ESP32 offline");
+        return;
     }
 
-    if (esp32Socket && esp32Socket.readyState === WebSocket.OPEN) {
-        pendingResponse = res;
-        esp32Socket.send("GET_HTML");
-    } else {
-        res.status(503).send("ESP32 verbindet sich noch... bitte Seite neu laden.");
-    }
+    const id = Date.now();
+
+    const payload = {
+        id: id,
+        method: req.method,
+        path: req.originalUrl
+    };
+
+    espSocket.send(JSON.stringify(payload));
+
+    const listener = (msg) => {
+        const data = JSON.parse(msg);
+
+        if (data.id === id) {
+            res.status(200).send(data.body);
+            espSocket.off("message", listener);
+        }
+    };
+
+    espSocket.on("message", listener);
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server läuft auf Port ${PORT}`));
+server.listen(3000, () => {
+    console.log("Tunnel server running");
+});
