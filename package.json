@@ -1,9 +1,9 @@
 {
   "name": "esp32-tunnel",
   "version": "1.0.0",
-  "main": "vpstunnel.js",
+  "main": "vpstunel.js",
   "scripts": {
-    "start": "node vpstunnel.js"
+    "start": "node vpstunel.js"
   },
   "dependencies": {
     "express": "^4.18.2",
