@@ -49,7 +49,7 @@ app.all("*",(req,res)=>{
         return;
     }
 
-    const id = Date.now()+Math.random();
+    const id = Date.now().toString() + Math.random().toString().substring(2, 6);
 
     requests[id] = res;
 
