@@ -48,11 +48,17 @@ wss.on("connection", ws => {
 
 app.all("*",(req,res)=>{
 
-const now = Date.now();
+    const now = Date.now();
 
-    // 2 Minuten Toleranz
+    // 🔴 wirklich offline (zu lange weg)
     if(!esp && (now - lastSeen > 120000)){
         res.status(503).send("ESP32 offline");
+        return;
+    }
+
+    // 🟡 kurz disconnected → nicht crashen!
+    if(!esp){
+        res.status(503).send("ESP32 reconnecting...");
         return;
     }
 
@@ -69,8 +75,3 @@ const now = Date.now();
 
     esp.send(JSON.stringify(payload));
 });
-
-server.listen(3000,()=>{
-    console.log("Tunnel running");
-});
-
