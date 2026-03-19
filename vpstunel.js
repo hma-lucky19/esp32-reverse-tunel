@@ -8,7 +8,6 @@ app.use(express.raw({type:"*/*"}));
 const server = http.createServer(app);
 const wss = new WebSocket.Server({server});
 
-let lastSeen = 0;
 let esp = null;
 let requests = {};
 
@@ -16,16 +15,13 @@ wss.on("connection", ws => {
 
     console.log("ESP32 connected");
     esp = ws;
-    lastSeen = Date.now();
 
     ws.on("close", ()=>{
         console.log("ESP32 disconnected");
-        lastSeen = Date.now(); // wichtig!
         esp = null;
     });
 
     ws.on("message", msg=>{
-        lastSeen = Date.now(); // jede Aktivität zählt
         const data = JSON.parse(msg);
 
         const res = requests[data.id];
@@ -48,17 +44,8 @@ wss.on("connection", ws => {
 
 app.all("*",(req,res)=>{
 
-    const now = Date.now();
-
-    // 🔴 wirklich offline (zu lange weg)
-    if(!esp && (now - lastSeen > 120000)){
-        res.status(503).send("ESP32 offline");
-        return;
-    }
-
-    // 🟡 kurz disconnected → nicht crashen!
     if(!esp){
-        res.status(503).send("ESP32 reconnecting...");
+        res.status(503).send("ESP32 offline");
         return;
     }
 
