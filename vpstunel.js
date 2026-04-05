@@ -3,7 +3,10 @@ const WebSocket = require("ws");
 const http = require("http");
 
 const app = express();
-app.use(express.raw({type:"*/*"}));
+app.use(express.raw({
+    type: "*/*",
+    limit: "20mb"
+}));
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({server});
